@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 随机抽题</title>
+    <style>
+        /* 基础样式重置 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            /* 背景：回归清新的蓝紫渐变，有色彩但不刺眼 */
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        h1 { 
+            color: #fff; /* 在深色渐变背景上用白字 */
+            margin-bottom: 30px; 
+            font-size: 28px;
+            font-weight: 800;
+            text-shadow: none; /* 扁平化，去阴影 */
+        }
+
+        /* 转盘容器 */
+        .wheel-container {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            margin-bottom: 40px;
+        }
+
+        /* Canvas 转盘本体：纯扁平 */
+        #wheelCanvas {
+            width: 100%;
+            height: 100%;
+            transition: transform 3.5s cubic-bezier(0.2, 0, 0, 1); 
+            border-radius: 50%;
+            /* 纯白边框，无阴影 */
+            border: 6px solid white; 
+            box-shadow: none; 
+        }
+
+        /* 指针：红色扁平 */
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            /* 指针颜色：鲜艳红 */
+            border-top: 40px solid #ff4757;
+            z-index: 10;
+            filter: none; /* 去投影 */
+        }
+
+        /* 按钮样式：白色扁平，清爽 */
+        .spin-btn {
+            background: #fff; 
+            color: #333;
+            border: none;
+            padding: 15px 70px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: none; /* 去阴影 */
+            transition: transform 0.1s, opacity 0.1s;
+        }
+        .spin-btn:active { 
+            transform: scale(0.95); 
+            opacity: 0.9;
+        }
+        .spin-btn:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed; 
+        }
+
+        /* 结果弹窗：纯扁平 */
+        #result-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: #fff;
+            padding: 30px 20px;
+            width: 85%;
+            max-width: 320px;
+            border-radius: 12px;
+            text-align: center;
+            /* 只有边框，没有阴影 */
+            border: 2px solid #eee;
+            box-shadow: none; 
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            z-index: 100;
+        }
+        #result-box.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+        #result-box h2 { 
+            color: #8ec5fc; /* 标题色呼应背景 */
+            margin-bottom: 15px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        #result-box .text { font-size: 34px; font-weight: 800; color: #333; margin-bottom: 10px; }
+        #result-box .close-hint { margin-top: 20px; font-size: 14px; color: #999; }
+
+        /* 遮罩层 */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255, 0.4); /* 白雾感遮罩 */
+            backdrop-filter: blur(2px); /* 稍微一点点模糊 */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 99;
+        }
+        #overlay.show { opacity: 1; pointer-events: auto; }
+
+    </style>
+</head>
+<body>
+
+    <h1>AI-PAD</h1>
+
+    <div class="wheel-container">
+        <div class="pointer"></div>
+        <canvas id="wheelCanvas" width="640" height="640"></canvas>
+    </div>
+
+    <button class="spin-btn" id="spinBtn" onclick="startSpin()">开始抽取</button>
+
+    <div id="overlay" onclick="closeResult()"></div>
+    <div id="result-box">
+        <div class="text" id="result-text"></div>
+        <div class="close-hint">点击任意处关闭</div>
+    </div>
+
+    <script>
+        // ================= 配置区域 =================
+        const questions = [
+            "AI万能圈",
+            "AI神键",
+            "涂鸦生图",
+            "AI修图",
+            "AI纪要"
+        ];
+
+        // 之前的活力多彩配色
+        const colors = [
+            "#FF9F43", // 活力橙
+            "#54a0ff", // 清新蓝
+            "#ff6b6b", // 热情红
+            "#1dd1a1", // 治愈绿
+            "#f368e0"  // 梦幻紫
+        ];
+        // ===========================================
+
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const resultBox = document.getElementById('result-box');
+        const resultText = document.getElementById('result-text');
+        const overlay = document.getElementById('overlay');
+        
+        let numSegments = questions.length;
+        let segmentAngle = 360 / numSegments; 
+        
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = canvas.width / 2;
+
+        let currentRotation = 0; 
+        let isSpinning = false;
+
+        function drawWheel() {
+            numSegments = questions.length;
+            segmentAngle = 360 / numSegments;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < numSegments; i++) {
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, (i * segmentAngle * Math.PI / 180), ((i + 1) * segmentAngle * Math.PI / 180));
+                ctx.closePath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                
+                // 绘制文字
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate((i + 0.5) * segmentAngle * Math.PI / 180);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "white"; 
+                ctx.font = "bold 38px sans-serif"; 
+                ctx.fillText(questions[i], radius - 50, 12); 
+                ctx.restore();
+            }
+        }
+
+        function startSpin() {
+            if (isSpinning) return;
+            isSpinning = true;
+            spinBtn.disabled = true;
+
+            const winningIndex = Math.floor(Math.random() * numSegments);
+
+            // 精准角度计算
+            let targetAngle = 270 - (winningIndex * segmentAngle + segmentAngle / 2);
+
+            const minSpins = 5 * 360; 
+            while (targetAngle < currentRotation + minSpins) {
+                targetAngle += 360;
+            }
+
+            currentRotation = targetAngle;
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            setTimeout(() => {
+                showResult(winningIndex);
+                isSpinning = false;
+                spinBtn.disabled = false;
+            }, 3500);
+        }
+
+        function showResult(index) {
+            resultText.innerText = questions[index];
+            resultBox.classList.add('show');
+            overlay.classList.add('show');
+        }
+
+        function closeResult() {
+            resultBox.classList.remove('show');
+            overlay.classList.remove('show');
+        }
+
+        drawWheel();
+
+    </script>
+</body>
+</html>

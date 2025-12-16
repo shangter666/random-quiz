@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>随机抽题</title>
+    <style>
+        /* 基础重置 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: white;
+            width: 100%;
+            max-width: 400px;
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.1s;
+        }
+
+        /* 题目文字 */
+        #question-box {
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        /* 按钮样式 */
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+            width: 100%;
+        }
+
+        button:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 5px rgba(118, 75, 162, 0.4);
+        }
+
+        /* 简单的淡入动画 */
+        .fade-in {
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div id="question-box">准备好了吗？</div>
+        <button onclick="draw()">🎲 随机抽取</button>
+    </div>
+
+    <script>
+        // ---在此处配置你的题目---
+        const questions = [
+            "1. 介绍一下 Go 的 GMP 模型",
+            "2. 什么是死锁？如何避免？",
+            "3. 解释一下区块链的共识机制",
+            "4. HTTP 和 HTTPS 的主要区别",
+            "5. 数据库事务的四大特性 (ACID)",
+            "6. 什么是零知识证明？",
+            "7. 讲讲 Redis 的持久化策略",
+            "8. Git Rebase 是做什么的？",
+            "9. 什么是 Docker 镜像和容器？",
+            "10. 智能合约存在哪些安全隐患？"
+        ];
+
+        function draw() {
+            const box = document.getElementById("question-box");
+            
+            // 简单的随机逻辑
+            const randomIndex = Math.floor(Math.random() * questions.length);
+            
+            // 移除动画类以便重新触发
+            box.classList.remove("fade-in");
+            
+            // 强制重绘 (Hack)
+            void box.offsetWidth; 
+            
+            // 更新文字并添加动画
+            box.innerText = questions[randomIndex];
+            box.classList.add("fade-in");
+        }
+    </script>
+</body>
+</html>

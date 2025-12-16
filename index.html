@@ -3,114 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>随机抽题</title>
+    <title>幸运大转盘抽题</title>
     <style>
-        /* 基础重置 */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* 基础样式重置 */
+        * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             padding: 20px;
         }
 
-        /* 卡片样式 */
-        .card {
-            background: white;
-            width: 100%;
-            max-width: 400px;
-            padding: 40px 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            text-align: center;
-            transition: transform 0.1s;
+        h1 { color: #333; margin-bottom: 20px; }
+
+        /* 转盘容器 */
+        .wheel-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin-bottom: 30px;
         }
 
-        /* 题目文字 */
-        #question-box {
-            min-height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 30px;
-            line-height: 1.5;
+        /* Canvas 转盘本体 */
+        #wheelCanvas {
+            width: 100%;
+            height: 100%;
+            transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1); /* 旋转动画曲线 */
+            border-radius: 50%;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        /* 指针 (用CSS画一个倒三角) */
+        .pointer {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid #ff4757; /* 指针颜色 */
+            z-index: 10;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
         }
 
         /* 按钮样式 */
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .spin-btn {
+            background: linear-gradient(to right, #ff416c, #ff4b2b);
             border: none;
             color: white;
-            padding: 15px 40px;
-            font-size: 18px;
-            border-radius: 50px;
+            padding: 15px 50px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4);
-            transition: transform 0.1s, box-shadow 0.1s;
-            width: 100%;
+            box-shadow: 0 5px 15px rgba(255, 75, 43, 0.4);
+            transition: transform 0.1s;
         }
+        .spin-btn:active { transform: scale(0.98); }
+        .spin-btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
 
-        button:active {
-            transform: scale(0.98);
-            box-shadow: 0 2px 5px rgba(118, 75, 162, 0.4);
+        /* 结果显示区域 */
+        #result-box {
+            margin-top: 30px;
+            min-height: 80px;
+            padding: 20px;
+            background: white;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            opacity: 0; /* 初始隐藏 */
+            transition: opacity 0.5s;
         }
+        #result-box.show { opacity: 1; }
 
-        /* 简单的淡入动画 */
-        .fade-in {
-            animation: fadeIn 0.5s;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <div id="question-box">准备好了吗？</div>
-        <button onclick="draw()">🎲 随机抽取</button>
+    <h1>✨ 幸运大抽题 ✨</h1>
+
+    <div class="wheel-container">
+        <div class="pointer"></div>
+        <canvas id="wheelCanvas" width="600" height="600"></canvas>
     </div>
 
+    <button class="spin-btn" id="spinBtn" onclick="startSpin()">开始旋转!</button>
+
+    <div id="result-box"></div>
+
     <script>
-        // ---在此处配置你的题目---
-        const questions = [
-            "1. 介绍一下 Go 的 GMP 模型",
+        // Let's Go! 配置区域
+        // ==========================================
+        
+        // 这里填入你的10道完整题目
+        const fullQuestions = [
+            "1. Go语言的GMP调度模型原理",
             "2. 什么是死锁？如何避免？",
-            "3. 解释一下区块链的共识机制",
-            "4. HTTP 和 HTTPS 的主要区别",
-            "5. 数据库事务的四大特性 (ACID)",
-            "6. 什么是零知识证明？",
-            "7. 讲讲 Redis 的持久化策略",
-            "8. Git Rebase 是做什么的？",
-            "9. 什么是 Docker 镜像和容器？",
-            "10. 智能合约存在哪些安全隐患？"
+            "3. 解释一下区块链的共识机制(PoW/PoS)",
+            "4. HTTP/1.1, 2.0, 3.0 的主要区别",
+            "5. 数据库事务隔离级别有哪些？",
+            "6. 什么是 Docker 容器逃逸？",
+            "7. Redis 为什么那么快？",
+            "8. Git Merge 和 Rebase 的区别",
+            "9. Kubernetes 的 Pod 是什么？",
+            "10. 解释一下 HTTPS 的握手过程"
         ];
 
-        function draw() {
-            const box = document.getElementById("question-box");
+        // 转盘上显示的简短文字 (建议不要太长)
+        const segments = fullQuestions.map((q, i) => `题目 ${i + 1}`);
+        
+        // 转盘颜色配置 (相间)
+        const colors = ["#FF6B6B", "#4ECDC4", "#FFE66D", "#1A535C", "#F7FFF7", "#FF6B6B", "#4ECDC4", "#FFE66D", "#1A535C", "#F7FFF7"];
+        
+        // ==========================================
+
+
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const resultBox = document.getElementById('result-box');
+        
+        const numSegments = segments.length;
+        const segmentAngle = (2 * Math.PI) / numSegments; // 每个扇形的角度(弧度)
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = canvas.width / 2;
+
+        let currentRotation = 0; // 记录当前转过的角度
+        let isSpinning = false;
+
+        // --- 核心绘图函数 ---
+        function drawWheel() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // 简单的随机逻辑
-            const randomIndex = Math.floor(Math.random() * questions.length);
-            
-            // 移除动画类以便重新触发
-            box.classList.remove("fade-in");
-            
-            // 强制重绘 (Hack)
-            void box.offsetWidth; 
-            
-            // 更新文字并添加动画
-            box.innerText = questions[randomIndex];
-            box.classList.add("fade-in");
+            for (let i = 0; i < numSegments; i++) {
+                // 1. 画扇形
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, i * segmentAngle, (i + 1) * segmentAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = "#ffffff";
+                ctx.stroke();
+
+                // 2. 画文字
+                ctx.save(); // 保存当前画布状态
+                ctx.translate(centerX, centerY); // 将原点移到中心
+                ctx.rotate((i + 0.5) * segmentAngle); // 旋转到扇形中间
+                ctx.textAlign = "right";
+                ctx.fillStyle = (i % 5 === 4) ? "#333" : "white"; // 深色背景配白字，浅色配黑字
+                ctx.font = "bold 28px sans-serif";
+                ctx.fillText(segments[i], radius - 30, 10); // 文字向外绘制
+                ctx.restore(); // 恢复画布状态
+            }
         }
+
+        // --- 开始旋转逻辑 ---
+        function startSpin() {
+            if (isSpinning) return;
+            isSpinning = true;
+            spinBtn.disabled = true; // 禁用按钮
+            resultBox.classList.remove('show'); // 隐藏结果框
+
+            // 1. 随机选一个结果索引
+            const winningIndex = Math.floor(Math.random() * numSegments);
+
+            // 2. 计算旋转角度
+            // 我们需要指针指向正上方(0度/360度)。
+            // Canvas绘制时，第0个扇形是从3点钟方向开始顺时针画的。
+            // 需要经过复杂的角度换算，这里采用一个简化的 Trick：
+            // 让转盘多转几圈 (比如5圈 = 360 * 5)，加上随机角度。
+            // 最后通过计算停下来的总角度对360取余，来判断指着谁。
+
+            // 基础旋转圈数 (至少转5圈，显得刺激)
+            const baseRotations = 5 * 360; 
+            // 随机目标角度 (为了让它停在扇形中间，加个半扇形偏移量)
+            const randomOffset = Math.floor(Math.random() * 360);
+            // 总目标角度
+            const targetRotation = baseRotations + randomOffset;
+            
+            // 更新全局旋转角度 (保证下次接着这次转)
+            currentRotation += targetRotation;
+
+            // 3. 应用 CSS 动画
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            // 4. 监听动画结束事件
+            // 注意：CSS transition 设置的是 4s
+            setTimeout(() => {
+                showResult(currentRotation);
+                isSpinning = false;
+                spinBtn.disabled = false;
+            }, 4000); // 这里的时间要和 CSS transition 时间一致
+        }
+
+        // --- 计算并显示结果 ---
+        function showResult(finalAngle) {
+             // 计算最终停下来的角度相对于一圈的位置
+             // +90 是因为指针在顶部，而canvas 0度在右侧，有一个90度的相位差
+            const actualAngle = (finalAngle + 90) % 360;
+            
+            // 计算是第几个扇形 (注意 Canvas 是顺时针画的，角度越大索引越后面)
+            // 用 360 减去角度，把顺时针角度转换成逆时针索引计算
+            let winningIndex = Math.floor((360 - actualAngle) / (360 / numSegments));
+            // 处理边界情况
+            winningIndex = winningIndex % numSegments;
+
+            // 显示完整的题目
+            resultBox.innerText = "🎉 抽中：" + fullQuestions[winningIndex];
+            resultBox.classList.add('show');
+        }
+
+        // 初始化绘制
+        drawWheel();
+
     </script>
 </body>
 </html>
